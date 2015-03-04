@@ -259,11 +259,25 @@
   //     bla: "even more stuff"
   //   }); // obj1 now contains key1, key2, key3 and bla
   _.extend = function(obj) {
+    _.each(arguments, function(eachObject){
+      _.each(eachObject, function(value, key) {
+        obj[key] = eachObject[key];
+      })
+    })
+    return obj;
   };
 
   // Like extend, but doesn't ever overwrite a key that already
   // exists in obj
   _.defaults = function(obj) {
+    _.each(arguments, function(eachObject){
+      _.each(eachObject, function(value, key) {
+        if (obj[key] === undefined){
+          obj[key] = eachObject[key];
+        }
+      })
+    })
+    return obj;
   };
 
 
@@ -307,6 +321,31 @@
   // already computed the result for the given argument and return that value
   // instead if possible.
   _.memoize = function(func) {
+    var alreadyCalled = false;
+    var result;
+    var args;
+
+    // TIP: We'll return a new function that delegates to the old one, but only
+    // if it hasn't been called before.
+    return function() {
+      args = args || arguments;
+
+      for (var i = 0; i < args.length; i++){
+        if (args[i] !== arguments[i]){
+          alreadyCalled = false;
+          break;
+        }
+      }
+      
+      if (!alreadyCalled) {
+        // TIP: .apply(this, arguments) is the standard way to pass on all of the
+        // infromation from one function call to another.
+        result = func.apply(this, arguments);
+        alreadyCalled = true;
+      }
+      // The new function always returns the originally computed result.
+      return result;
+    };
   };
 
   // Delays a function for the given number of milliseconds, and then calls
@@ -316,6 +355,17 @@
   // parameter. For example _.delay(someFunction, 500, 'a', 'b') will
   // call someFunction('a', 'b') after 500ms
   _.delay = function(func, wait) {
+    //setTimeout for func with wait as out time.
+    //loop that pushes arguments into array. 
+    var argArray = [];
+    for(var i = 2; i < arguments.length; i++){
+      argArray.push(arguments[i]);
+    }
+
+    setTimeout(function(){
+      func.apply(this, argArray);
+    }, wait);
+    //any arguments equal or beyond the 2nd index are the arguments. 
   };
 
 
@@ -330,6 +380,21 @@
   // input array. For a tip on how to make a copy of an array, see:
   // http://mdn.io/Array.prototype.slice
   _.shuffle = function(array) {
+    //create an array that stores random stuff
+    var randArray = [];
+    var usedIndexes = [];
+    //select a random number and set it as index
+    //check if that index has been used already
+    //if not, push to randArray
+    while (array.length !== randArray.length) {
+      var index = Math.floor(Math.random() * array.length);
+      if (!_.contains(usedIndexes, index)){
+        randArray.push(array[index]);
+        usedIndexes.push(index);
+      }
+    }
+    return randArray;
+    //return that array
   };
 
 
@@ -344,6 +409,24 @@
   // Calls the method named by functionOrKey on each value in the list.
   // Note: You will need to learn a bit about .apply to complete this.
   _.invoke = function(collection, functionOrKey, args) {
+    //run each on the collection
+    var arr = [];
+
+    //check if functionOrKey is string. then parse. else ignore.
+   
+    if (typeof functionOrKey === 'string'){
+      _.each(collection, function(item){
+        arr.push(item[functionOrKey].apply(item, collection));
+      });
+    } else {
+      //obj.key obj["key"]
+      _.each(collection, function(item){
+        arr.push(functionOrKey.apply(item, collection));
+      });
+      // return functionOrKey.apply(args, collection);
+    }
+    
+    return arr;
   };
 
   // Sort the object's values by a criterion produced by an iterator.
@@ -351,6 +434,12 @@
   // of that string. For example, _.sortBy(people, 'name') should sort
   // an array of people by their name.
   _.sortBy = function(collection, iterator) {
+    if (typeof iterator === 'string'){
+      collection.sort(function(a, b){ return a[iterator] - b[iterator]; });
+    } else {
+      collection.sort(function(a, b){ return iterator(a) - iterator(b); });
+    }
+    return collection;
   };
 
   // Zip together two or more arrays with elements of the same index
@@ -359,6 +448,19 @@
   // Example:
   // _.zip(['a','b','c','d'], [1,2,3]) returns [['a',1], ['b',2], ['c',3], ['d',undefined]]
   _.zip = function() {
+    //Make a new array for each index. Each array contains only the elements at a single index.
+    //can also handle arrays of different lengths. 
+    var results = [];
+
+
+    for(var i = 0; i < arguments.length; i++){
+      var temp = [];
+      for(var j = 0; j < arguments[0].length; j++){
+        temp.push(arguments[j][i]);
+      }
+      results.push(temp);
+    }
+    return results;
   };
 
   // Takes a multidimensional array and converts it to a one-dimensional array.
@@ -366,16 +468,57 @@
   //
   // Hint: Use Array.isArray to check if something is an array
   _.flatten = function(nestedArray, result) {
+    var results = [];
+
+    var loopArray = function(array) {
+      for (var i = 0; i < array.length; i++) {
+        if (Array.isArray(array[i])) {
+          loopArray(array[i]);
+        } else {
+          results.push(array[i]);
+        }
+      }
+    }
+
+    loopArray(nestedArray);
+    return results;
   };
 
   // Takes an arbitrary number of arrays and produces an array that contains
   // every item shared between all the passed-in arrays.
   _.intersection = function() {
+    var results = [];
+    var items = {};
+
+    var flat = _.flatten(arguments);
+    _.each(flat, function(key){
+      items[key] = items[key] + 1 || 1;
+    });
+
+    for(var keys in items){
+      if (items[keys] >= arguments.length){
+        results.push(keys);
+      }
+    }
+    return results;
   };
 
   // Take the difference between one array and a number of other arrays.
   // Only the elements present in just the first array will remain.
   _.difference = function(array) {
+    //run intersection, get an array of duplicates from all arguments
+    //compare arguments[0] with duplicateArray and then run uniq on that
+    var flatArray = Array.prototype.slice.call(arguments, 1);
+    flatArray = _.flatten(flatArray);
+    var results = [];
+    var items = {};
+    
+    for (var i = 0; i < array.length; i++){
+      if (!_.contains(flatArray, array[i])){
+        results.push(array[i]);
+      }
+    }
+    return results;
   };
 
   // Returns a function, that, when invoked, will only be triggered at most once
